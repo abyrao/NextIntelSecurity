@@ -5,7 +5,7 @@ Built as a single self-contained HTML file — no build step, no dependencies.
 
 ## Live demo
 
-Once deployed: `https://<your-username>.github.io/mythos-intel-feed`
+Once deployed: `https://abyrao.github.io/mythos-intel-feed`
 
 ## Features
 
