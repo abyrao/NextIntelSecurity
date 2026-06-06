@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mythos Intel Feed</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg0: #070c18;
+      --bg1: #0a0f1e;
+      --bg2: #0d1529;
+      --bg3: #111d35;
+      --border: rgba(255,255,255,0.07);
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --dim: #334155;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg1);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    /* ── Animations ── */
+    @keyframes fadein  { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes pulse   { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.65; } }
+    @keyframes spin    { to { transform: rotate(360deg); } }
+    @keyframes countin { from { opacity: 0; transform: scale(0.75); } to { opacity: 1; transform: scale(1); } }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; background: var(--bg0); }
+    ::-webkit-scrollbar-thumb { background: #1e2d47; border-radius: 3px; }
+
+    /* ── Layout ── */
+    #app { display: flex; flex-direction: column; min-height: 100vh; }
+
+    /* ── Header ── */
+    #header {
+      background: var(--bg0);
+      border-bottom: 1px solid var(--border);
+      padding: 18px 24px 14px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      overflow: hidden;
+    }
+    #header::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background-image: repeating-linear-gradient(
+        0deg, transparent 0px, transparent 3px,
+        rgba(0,0,0,0.13) 3px, rgba(0,0,0,0.13) 4px
+      );
+    }
+    #header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      position: relative;
+    }
+    #title-block h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(26px, 5vw, 36px);
+      letter-spacing: 0.1em;
+      color: var(--text);
+      line-height: 1;
+    }
+    #title-block .tag {
+      display: inline-block;
+      font-size: 9px;
+      padding: 3px 9px;
+      border-radius: 3px;
+      background: rgba(45,212,191,0.10);
+      color: #2dd4bf;
+      border: 1px solid rgba(45,212,191,0.28);
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      margin-left: 10px;
+      vertical-align: middle;
+    }
+    #subtitle {
+      font-size: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--dim);
+      margin-top: 5px;
+      letter-spacing: 0.08em;
+    }
+    #header-controls { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+
+    /* ── Buttons ── */
+    .btn {
+      font-size: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      padding: 7px 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      border: none;
+      outline: none;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-teal  { background: rgba(45,212,191,0.10); border: 1px solid rgba(45,212,191,0.30); color: #2dd4bf; }
+    .btn-blue  { background: rgba(96,165,250,0.10); border: 1px solid rgba(96,165,250,0.28); color: #60a5fa; }
+    .btn-red   { background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.22); color: #f87171; }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    /* ── API key row ── */
+    #api-row { display: none; margin-top: 12px; gap: 8px; position: relative; animation: fadein 0.2s ease both; }
+    #api-row.visible { display: flex; }
+    #api-input {
+      flex: 1;
+      background: var(--bg3);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 4px;
+      padding: 7px 12px;
+      font-size: 12px;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    #api-input:focus { border-color: rgba(96,165,250,0.4); }
+    #api-note {
+      font-size: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--dim);
+      margin-top: 6px;
+      position: relative;
+    }
+
+    /* ── Error bar ── */
+    #error-bar {
+      display: none;
+      margin-top: 10px;
+      padding: 8px 12px;
+      background: rgba(248,113,113,0.08);
+      border: 1px solid rgba(248,113,113,0.22);
+      border-radius: 4px;
+      font-size: 11px;
+      color: #f87171;
+      font-family: 'JetBrains Mono', monospace;
+      position: relative;
+    }
+    #error-bar.visible { display: block; }
+
+    /* ── Summary bar ── */
+    #summary-bar {
+      display: flex;
+      gap: 6px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+      position: relative;
+    }
+    .sum-chip {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 4px 11px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.03);
+    }
+    .sum-chip .chip-label { font-size: 10px; font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+    .sum-chip .chip-count { font-size: 16px; font-weight: 700; font-family: 'JetBrains Mono', monospace; animation: countin 0.5s ease both; }
+
+    /* ── Body ── */
+    #body { display: flex; flex: 1; }
+
+    /* ── Sidebar ── */
+    #sidebar {
+      width: 220px;
+      flex-shrink: 0;
+      border-right: 1px solid var(--border);
+      padding: 18px 13px;
+      background: var(--bg1);
+      position: sticky;
+      top: 0;
+      align-self: flex-start;
+      max-height: calc(100vh - 180px);
+      overflow-y: auto;
+    }
+    .sb-label {
+      font-size: 9px;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      color: var(--dim);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      display: block;
+      margin-bottom: 9px;
+    }
+    .sb-divider { border-top: 1px solid var(--border); margin: 13px 0; }
+    .filter-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 8px;
+      border-radius: 5px;
+      margin-bottom: 4px;
+      cursor: pointer;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      transition: background 0.15s;
+      border: 1px solid transparent;
+      user-select: none;
+    }
+    .filter-sent {
+      padding: 5px 8px;
+      border-radius: 5px;
+      margin-bottom: 4px;
+      cursor: pointer;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      transition: background 0.15s;
+      border: 1px solid transparent;
+      user-select: none;
+    }
+    input[type=range] { width: 100%; cursor: pointer; accent-color: #60a5fa; margin: 2px 0; }
+    .range-labels { display: flex; justify-content: space-between; font-size: 9px; color: var(--muted); font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
+
+    /* ── Main grid ── */
+    #main { flex: 1; padding: 18px; }
+    #grid { columns: 2 270px; column-gap: 14px; }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 15px;
+      break-inside: avoid;
+      margin-bottom: 14px;
+      cursor: pointer;
+      transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+      animation: fadein 0.45s ease both;
+    }
+    .card:hover { transform: translateY(-1px); }
+    .card.expanded { box-shadow: 0 4px 28px rgba(0,0,0,0.4); }
+
+    .card-title { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.45; margin: 0; flex: 1; }
+    .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 9px; }
+    .card-badges { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 10px; }
+    .badge { font-size: 9px; padding: 2px 6px; border-radius: 3px; font-family: 'JetBrains Mono', monospace; font-weight: 700; letter-spacing: 0.05em; white-space: nowrap; }
+    .sent-tag { font-size: 9px; padding: 2px 7px; border-radius: 3px; font-family: 'JetBrains Mono', monospace; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
+    .card-summary { font-size: 12px; color: #94a3b8; margin-bottom: 12px; line-height: 1.65; }
+    .score-wrap { display: flex; align-items: center; gap: 7px; }
+    .score-track { flex: 1; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.07); overflow: hidden; }
+    .score-fill { height: 100%; border-radius: 2px; transition: width 0.7s cubic-bezier(.4,0,.2,1); }
+    .score-num { font-size: 10px; font-family: monospace; font-weight: 700; min-width: 14px; }
+    .card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+    .card-source { display: flex; gap: 7px; align-items: center; }
+    .card-src-name { font-size: 11px; color: var(--muted); font-family: monospace; }
+    .cred-badge { font-size: 9px; font-family: monospace; font-weight: 700; padding: 1px 5px; border-radius: 2px; }
+    .card-date { font-size: 10px; color: #475569; font-family: monospace; }
+    .card-detail { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.07); font-size: 12px; color: #cbd5e1; line-height: 1.75; animation: fadein 0.25s ease both; }
+    .card-link { font-size: 10px; font-family: monospace; font-weight: 700; text-decoration: none; letter-spacing: 0.07em; margin-top: 10px; display: inline-block; }
+
+    /* ── Skeleton ── */
+    .skeleton { background: var(--bg2); border: 1px solid rgba(255,255,255,0.05); border-left: 3px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 15px; break-inside: avoid; margin-bottom: 14px; }
+    .skel-line { background: rgba(255,255,255,0.05); border-radius: 3px; margin-bottom: 10px; animation: pulse 1.5s ease-in-out infinite; }
+
+    /* ── Empty state ── */
+    #empty { display: none; text-align: center; padding: 80px 20px; animation: fadein 0.3s ease both; }
+    #empty.visible { display: block; }
+    #empty .empty-icon { font-size: 48px; color: #1e2d47; margin-bottom: 16px; font-family: monospace; }
+    #empty p { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: #475569; letter-spacing: 0.12em; margin-bottom: 20px; }
+
+    /* ── Sparkline ── */
+    .sparkline { display: block; overflow: visible; flex-shrink: 0; }
+
+    /* ── Spinning refresh indicator ── */
+    .spinning { animation: spin 1s linear infinite; display: inline-block; }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      #sidebar { display: none; }
+      #grid { columns: 1; }
+      #header { padding: 14px 16px 10px; }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- HEADER -->
+  <header id="header">
+    <div id="header-top">
+      <div id="title-block">
+        <h1>Mythos Intel Feed <span class="tag">▸ DEMO MODE</span></h1>
+        <div id="subtitle">INTEL FEED · INITIALISING...</div>
+      </div>
+      <div id="header-controls">
+        <button class="btn btn-blue" id="apiBtn">API KEY</button>
+        <button class="btn btn-teal" id="refreshBtn">⟳ REFRESH</button>
+      </div>
+    </div>
+
+    <div id="api-row">
+      <input type="password" id="api-input" placeholder="sk-ant-api03-... (Anthropic API key — enables live web search)">
+      <button class="btn btn-blue" id="liveBtn">LIVE SEARCH</button>
+    </div>
+    <div id="api-note" style="display:none">
+      Live search calls the Anthropic API with web_search enabled. Results replace mock data.
+      Requires <code>anthropic-dangerous-direct-browser-access: true</code> header (CORS may block in some browsers).
+    </div>
+    <div id="error-bar"></div>
+    <div id="summary-bar"></div>
+  </header>
+
+  <!-- BODY -->
+  <div id="body">
+    <!-- SIDEBAR -->
+    <aside id="sidebar">
+      <span class="sb-label">By Category</span>
+      <div id="cat-filters"></div>
+      <div class="sb-divider"></div>
+      <span class="sb-label">Sentiment</span>
+      <div id="sent-filters"></div>
+      <div class="sb-divider"></div>
+      <span class="sb-label">Min Relevance: <span id="min-label" style="color:#60a5fa;font-weight:700">1</span></span>
+      <input type="range" id="min-range" min="1" max="10" step="1" value="1">
+      <div class="range-labels"><span>1</span><span>10</span></div>
+      <div id="clear-wrap" style="display:none">
+        <div class="sb-divider"></div>
+        <button class="btn btn-red" id="clearBtn" style="width:100%;padding:7px">✕ CLEAR FILTERS</button>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main id="main">
+      <div id="grid"></div>
+      <div id="empty">
+        <div class="empty-icon">◌</div>
+        <p>NO SIGNALS MATCH CURRENT FILTERS</p>
+        <button class="btn btn-teal" id="emptyResetBtn">RESET FILTERS</button>
+      </div>
+    </main>
+  </div>
+
+</div>
+
+<script>
+// ─── Data ────────────────────────────────────────────────────────────────────
+
+const CATS = {
+  release:        { s:'RELEASE',    e:'🚀', c:'#2dd4bf', d:'rgba(45,212,191,.10)',  b:'rgba(45,212,191,.28)'  },
+  casestudy:      { s:'CASE STUDY', e:'📋', c:'#fbbf24', d:'rgba(251,191,36,.10)',  b:'rgba(251,191,36,.28)'  },
+  implementation: { s:'IMPL',       e:'⚙️', c:'#a78bfa', d:'rgba(167,139,250,.10)', b:'rgba(167,139,250,.28)' },
+  lessons:        { s:'LESSONS',    e:'🎓', c:'#60a5fa', d:'rgba(96,165,250,.10)',  b:'rgba(96,165,250,.28)'  },
+  remediation:    { s:'FIX',        e:'🛠️', c:'#fb923c', d:'rgba(251,146,60,.10)',  b:'rgba(251,146,60,.28)'  },
+  engineering:    { s:'ENG',        e:'🧑‍💻', c:'#34d399', d:'rgba(52,211,153,.10)',  b:'rgba(52,211,153,.28)'  },
+};
+
+const SENT = {
+  positive:   { l:'Positive',   s:'▲', c:'#34d399', b:'rgba(52,211,153,.12)'  },
+  neutral:    { l:'Neutral',    s:'●', c:'#fbbf24', b:'rgba(251,191,36,.12)'  },
+  cautionary: { l:'Cautionary', s:'▼', c:'#f87171', b:'rgba(248,113,113,.12)' },
+};
+
+const MOCK = [
+  { id:1, title:'Anthropic Expands Preview Access to Enterprise Partners', src:'The AI Chronicle', cr:1, dt:'2026-05-28', cats:['release','casestudy'], sc:9, sn:'positive',
+    sum:'Anthropic has expanded limited preview access to enterprise partners across finance, healthcare, and legal verticals, signaling readiness for a broader rollout. Early deployments show a 34% improvement on multi-step reasoning tasks.',
+    det:'Approximately 15 enterprise partners gained access. A healthcare provider achieved 89% accuracy on complex clinical case notes. GA launch projected Q3 2026, contingent on rate-limit infrastructure scaling.' },
+  { id:2, title:'Migrating to New Claude Models: Breaking Changes & Patterns', src:'Towards AI Engineering', cr:1, dt:'2026-05-25', cats:['implementation'], sc:8, sn:'neutral',
+    sum:'A deep-dive guide covers new tool-use schema changes, extended context window pagination strategies, and the extended_thinking parameter. Strict JSON schema validation now enforced by default is flagged as a silent breaking change.',
+    det:'Migration checklist: (1) Updated tool-use schemas with reasoning trace fields. (2) New pagination for the expanded context. (3) Configure extended_thinking — adds 1.5-3x latency but improves mathematical reasoning. (4) Strict JSON mode now default — prior lenient parsers will silently fail.' },
+  { id:3, title:'Beta Survey: 90 Days of Lessons Across 12 Organizations', src:'ML Practitioners Hub', cr:2, dt:'2026-05-22', cats:['lessons','casestudy'], sc:7, sn:'neutral',
+    sum:'Prompt cache miss latency (avg 4.2s on cold requests) and edge-case refusals surface as top friction points. Long-context coherence rated "significantly better" by 11 of 12 respondents.',
+    det:'83% cited prompt cache latency as a production concern. Seven teams hit unexpected refusals on legitimate edge-case content. Near-universal praise for coherence over 200K+ token contexts. Extended thinking latency acceptable for batch, problematic for interactive applications.' },
+  { id:4, title:'Official: Active Issues — May 2026 Status Report', src:'Anthropic Status Blog', cr:1, dt:'2026-05-20', cats:['remediation'], sc:9, sn:'cautionary',
+    sum:'Four active issues: tool-use timeouts (~2% of peak requests), citation hallucination on multilingual docs, rate limit miscounting under concurrent streaming, and extended thinking tokens billed incorrectly.',
+    det:'Mitigations: (1) Exponential backoff x3 for timeouts. (2) Prepend [DOCUMENT LANGUAGE: lang] to multilingual chunks. (3) Limit concurrent streaming to 5 until patch ships. (4) Billing bug fix mid-June; credits issued for overcharges.' },
+  { id:5, title:'Anthropic Engineers AMA: Architecture Internals & Roadmap', src:'Anthropic Discord (Official)', cr:1, dt:'2026-05-18', cats:['engineering'], sc:8, sn:'positive',
+    sum:'A 2-hour live Q&A revealed hierarchical attention behind the extended context window, confirmed native XML system prompt support, and signaled a fine-tuning API on the roadmap.',
+    det:'Extended context uses hierarchical attention that degrades gracefully vs hard-failing. Fine-tuning API confirmed for later this year, focused on instruction-following alignment. Native XML in system prompts eliminates most delimiter workarounds from prior models.' },
+  { id:6, title:"Case Study: ContractIQ Cuts M&A Review Time 67%", src:'LegalTech Insider', cr:1, dt:'2026-05-15', cats:['casestudy','implementation'], sc:8, sn:'positive',
+    sum:'ContractIQ feeds entire M&A contracts (avg 180K tokens) into a single context — no chunking — achieving 94.2% accuracy on material adverse change clauses vs 78% with their prior pipeline.',
+    det:'RAG-free approach: full documents in a single context using structured XML system prompts. Extended thinking improved accuracy +8pp on ambiguous clauses. ROI positive within 3 months, offsetting higher token costs by eliminating vector DB infrastructure.' },
+  { id:7, title:'Rate Limit Survival Guide: Community Workarounds', src:'Hacker News (340+ comments)', cr:2, dt:'2026-05-12', cats:['remediation','lessons'], sc:6, sn:'cautionary',
+    sum:'Top-voted thread aggregates production workarounds: token bucket with 60s refill, priority queuing for interactive vs batch, and SHA-256 prefix caching to avoid redundant system prompt processing.',
+    det:'Community consensus: limits are intentionally conservative for preview and will increase at GA — confirmed by Anthropic reps in-thread. Multi-key proxies flagged as TOS gray area by multiple engineers.' },
+  { id:8, title:'Claude Outperforms GPT-4.5 on 7 of 10 Enterprise Benchmarks', src:'Epoch AI Research', cr:1, dt:'2026-05-08', cats:['release','casestudy'], sc:9, sn:'positive',
+    sum:'Independent evaluation places Claude ahead on long-document summarization (+12pts SCROLLS) and multi-file codegen (+9pts HumanEval Extended). GPT-4.5 retains edge on real-time web retrieval.',
+    det:'Wins 7/10 benchmarks; largest gaps in SCROLLS and HumanEval Extended. More conservative on ambiguous content — reduces false positives in safety-sensitive enterprise deployments.' },
+];
+
+// ─── State ────────────────────────────────────────────────────────────────────
+
+let articles = [...MOCK];
+let catFilters = new Set();
+let sentFilters = new Set();
+let minScore = 1;
+let expandedId = null;
+let loading = false;
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function getFiltered() {
+  return articles.filter(a => {
+    if (catFilters.size > 0 && !a.cats.some(c => catFilters.has(c))) return false;
+    if (sentFilters.size > 0 && !sentFilters.has(a.sn)) return false;
+    if (a.sc < minScore) return false;
+    return true;
+  });
+}
+
+function getCounts() {
+  return Object.keys(CATS).reduce((acc, k) => {
+    acc[k] = articles.filter(a => a.cats.includes(k)).length;
+    return acc;
+  }, {});
+}
+
+function ts() {
+  return new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+}
+
+function sparkSVG(cat, color) {
+  const today = new Date('2026-05-31');
+  const W = 62, H = 18, N = 12;
+  const days = Array.from({length:N}, (_, i) => {
+    const d = new Date(today); d.setDate(d.getDate() - (N-1-i));
+    return d.toISOString().slice(0,10);
+  });
+  const vals = days.map((day, di) =>
+    articles.filter(a => a.cats.includes(cat) && a.dt <= day && (di===0 || a.dt > days[di-1])).length
+    + (Math.sin(di * 0.8 + cat.length) > 0.4 ? 1 : 0)
+  );
+  const max = Math.max(...vals, 1);
+  const pts = vals.map((v,i) =>
+    `${((i/(N-1))*W).toFixed(1)},${(H-(v/max)*(H-2)-1).toFixed(1)}`
+  ).join(' ');
+  return `<svg class="sparkline" width="${W}" height="${H}"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" opacity=".75"/></svg>`;
+}
+
+function scoreBarHTML(sc, color) {
+  return `<div class="score-wrap">
+    <div class="score-track"><div class="score-fill" style="width:${sc*10}%;background:${color}"></div></div>
+    <span class="score-num" style="color:${color}">${sc}</span>
+  </div>`;
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+
+function renderSummaryBar() {
+  const counts = getCounts();
+  document.getElementById('summary-bar').innerHTML = Object.entries(CATS).map(([k, v]) => {
+    const active = catFilters.has(k);
+    return `<div class="sum-chip" onclick="toggleCat('${k}')"
+      style="background:${active ? v.d : 'rgba(255,255,255,0.03)'};border-color:${active ? v.b : 'rgba(255,255,255,0.08)'}">
+      <span class="chip-label" style="color:${v.c}">${v.e} ${v.s}</span>
+      <span class="chip-count" style="color:${v.c}">${counts[k]}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderSidebar() {
+  const hasF = catFilters.size > 0 || sentFilters.size > 0 || minScore > 1;
+
+  document.getElementById('cat-filters').innerHTML = Object.entries(CATS).map(([k, v]) => {
+    const active = catFilters.has(k);
+    return `<div class="filter-item" onclick="toggleCat('${k}')"
+      style="background:${active ? v.d : 'transparent'};border-color:${active ? v.b : 'transparent'}">
+      <span style="color:${active ? v.c : '#94a3b8'};font-weight:${active ? 700 : 400}">${v.e} ${k.toUpperCase()}</span>
+      ${sparkSVG(k, v.c)}
+    </div>`;
+  }).join('');
+
+  document.getElementById('sent-filters').innerHTML = Object.entries(SENT).map(([k, v]) => {
+    const active = sentFilters.has(k);
+    return `<div class="filter-sent" onclick="toggleSent('${k}')"
+      style="background:${active ? v.b : 'transparent'};border-color:${active ? v.c + '44' : 'transparent'};color:${active ? v.c : '#64748b'};font-weight:${active ? 700 : 400}">
+      ${v.s} ${k.toUpperCase()}
+    </div>`;
+  }).join('');
+
+  document.getElementById('min-label').textContent = minScore;
+  document.getElementById('clear-wrap').style.display = hasF ? 'block' : 'none';
+}
+
+function renderGrid(animate = true) {
+  const f = getFiltered();
+  const grid = document.getElementById('grid');
+  const empty = document.getElementById('empty');
+  document.getElementById('subtitle').textContent =
+    `INTEL FEED · REFRESHED ${ts()} · ${f.length}/${articles.length} SIGNALS`;
+
+  if (f.length === 0) {
+    grid.innerHTML = '';
+    empty.classList.add('visible');
+    return;
+  }
+  empty.classList.remove('visible');
+
+  grid.innerHTML = f.map((a, i) => {
+    const pc = CATS[a.cats[0]] || CATS.release;
+    const exp = expandedId === a.id;
+    const sv = SENT[a.sn] || SENT.neutral;
+    const badges = a.cats.map(k => CATS[k]
+      ? `<span class="badge" style="background:${CATS[k].d};color:${CATS[k].c};border:1px solid ${CATS[k].b}">${CATS[k].e} ${CATS[k].s}</span>`
+      : ''
+    ).join('');
+    const credStyle = a.cr === 1
+      ? 'color:#60a5fa;background:rgba(96,165,250,.10)'
+      : 'color:#64748b;background:rgba(100,116,139,.10)';
+
+    return `<div class="card${exp?' expanded':''}" id="card-${a.id}" onclick="toggleCard(${a.id})"
+      style="border-left:3px solid ${pc.c};border-color:${exp ? pc.b : 'rgba(255,255,255,0.07)'};
+        box-shadow:${exp ? `0 4px 28px ${pc.c}18` : 'none'};
+        animation-delay:${animate ? i * 0.055 : 0}s">
+      <div class="card-top">
+        <h2 class="card-title">${a.title}</h2>
+        <span class="sent-tag" style="background:${sv.b};color:${sv.c}">${sv.s} ${sv.l.toUpperCase()}</span>
+      </div>
+      <div class="card-badges">${badges}</div>
+      <p class="card-summary">${a.sum}</p>
+      ${scoreBarHTML(a.sc, pc.c)}
+      <div class="card-footer">
+        <div class="card-source">
+          <span class="card-src-name">${a.src}</span>
+          <span class="cred-badge" style="${credStyle}">${a.cr===1?'TIER-1':'TIER-2'}</span>
+        </div>
+        <span class="card-date">${a.dt}</span>
+      </div>
+      ${exp ? `<div class="card-detail">${a.det}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderAll(animate) {
+  renderSummaryBar();
+  renderSidebar();
+  renderGrid(animate);
+}
+
+// ─── Interactions ─────────────────────────────────────────────────────────────
+
+function toggleCat(k) { catFilters.has(k) ? catFilters.delete(k) : catFilters.add(k); renderAll(false); }
+function toggleSent(k) { sentFilters.has(k) ? sentFilters.delete(k) : sentFilters.add(k); renderAll(false); }
+function clearF() { catFilters.clear(); sentFilters.clear(); minScore = 1; document.getElementById('min-range').value = 1; renderAll(false); }
+function toggleCard(id) { expandedId = expandedId === id ? null : id; renderGrid(false); }
+
+document.getElementById('min-range').addEventListener('input', e => {
+  minScore = parseInt(e.target.value);
+  renderSidebar();
+  renderGrid(false);
+});
+
+document.getElementById('apiBtn').addEventListener('click', () => {
+  const row = document.getElementById('api-row');
+  const note = document.getElementById('api-note');
+  const visible = row.classList.toggle('visible');
+  note.style.display = visible ? 'block' : 'none';
+  document.getElementById('apiBtn').textContent =
+    document.getElementById('api-input').value ? 'API ●' : (visible ? 'API ▲' : 'API KEY');
+});
+
+document.getElementById('emptyResetBtn').addEventListener('click', clearF);
+document.getElementById('clearBtn').addEventListener('click', clearF);
+
+// ─── Refresh (demo mode) ──────────────────────────────────────────────────────
+
+document.getElementById('refreshBtn').addEventListener('click', () => {
+  const key = document.getElementById('api-input').value.trim();
+  if (key) { liveSearch(key); return; }
+  // Demo: show skeleton then re-render
+  const btn = document.getElementById('refreshBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinning">⟳</span> SCANNING...';
+  document.getElementById('grid').innerHTML = Array.from({length:6}).map(() =>
+    `<div class="skeleton">${[92,68,100,80,45].map((w,i) =>
+      `<div class="skel-line" style="height:${i===0?13:9}px;width:${w}%;animation-delay:${i*.12}s"></div>`
+    ).join('')}</div>`
+  ).join('');
+  document.getElementById('empty').classList.remove('visible');
+  setTimeout(() => {
+    expandedId = null;
+    articles = [...MOCK].sort(() => Math.random() - 0.5);
+    btn.disabled = false;
+    btn.textContent = '⟳ REFRESH';
+    renderAll(true);
+  }, 950);
+});
+
+// ─── Live Search ──────────────────────────────────────────────────────────────
+
+async function liveSearch(apiKey) {
+  const btn = document.getElementById('refreshBtn');
+  const errBar = document.getElementById('error-bar');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinning">⟳</span> SCANNING...';
+  errBar.classList.remove('visible');
+  document.getElementById('grid').innerHTML = Array.from({length:6}).map(() =>
+    `<div class="skeleton">${[92,68,100,80,45].map((w,i) =>
+      `<div class="skel-line" style="height:${i===0?13:9}px;width:${w}%;animation-delay:${i*.12}s"></div>`
+    ).join('')}</div>`
+  ).join('');
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'web-search-2025-03-05',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 8000,
+        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 8 }],
+        messages: [{
+          role: 'user',
+          content: `Search for the latest news and articles about Anthropic Claude models, new releases, API updates, and community discussions published in the last 30 days.
+
+Return ONLY a JSON array (no markdown, no preamble) of objects:
+{ "title": string, "src": string, "url": string, "dt": "YYYY-MM-DD", "cats": ["release"|"casestudy"|"implementation"|"lessons"|"remediation"|"engineering"], "sc": 1-10, "sn": "positive"|"neutral"|"cautionary", "sum": "2 sentences", "det": "1 paragraph", "cr": 1|2 }`
+        }]
+      })
+    });
+    if (!res.ok) throw new Error(`API ${res.status}`);
+    const data = await res.json();
+    const block = (data.content || []).find(b => b.type === 'text');
+    if (!block) throw new Error('No text in response');
+    const raw = block.text.replace(/^```json?\n?/, '').replace(/\n?```$/, '').trim();
+    const parsed = JSON.parse(raw);
+    articles = parsed.map((a, i) => ({ ...a, id: Date.now() + i }));
+    expandedId = null;
+    renderAll(true);
+  } catch(e) {
+    errBar.textContent = `Search failed: ${e.message}. CORS may block direct browser requests — try running locally or via a proxy.`;
+    errBar.classList.add('visible');
+    renderGrid(true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '⟳ REFRESH';
+  }
+}
+
+document.getElementById('liveBtn').addEventListener('click', () => {
+  const key = document.getElementById('api-input').value.trim();
+  if (!key) { alert('Enter your Anthropic API key first.'); return; }
+  liveSearch(key);
+});
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+
+renderAll(true);
+</script>
+</body>
+</html>
